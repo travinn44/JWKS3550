@@ -8,13 +8,19 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
+#define keys and expiry time 
 keys = []
 KEY_EXPIRY_SECONDS = 60 * 60
 
+"""encodes bytes to base64 url format """
 def base64url_encode(data):
-    """Encodes bytes to Base64 URL format."""
     return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
 
+"""
+this function generates public and private keys 
+using a boolean it determines if the key is expired or not 
+appends the created keys into the keys array that gets carried over to the main file of the program 
+"""
 def generate_rsa_pair(expired=False):
     private_key = rsa.generate_private_key(
         public_exponent=65537,
@@ -45,4 +51,5 @@ def generate_rsa_pair(expired=False):
         'expiry': expiry
             
     })
+    #returns the key_id  private_pem public_pem and the expiry time
     return key_id, private_pem, public_pem, expiry

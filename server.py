@@ -9,13 +9,16 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from rsakeygen import generate_rsa_pair,base64url_encode, keys
 
+#intializing the server on the port 8080
 app = Flask(__name__)
 PORT = 8080
 
 
-
+#returns active keys 
 def get_active_keys():
     return [key for key in keys if key['expiry'] > time.time()]
+
+#endpoint defining and returning an inital JWKS json of the active public keys in keys
 
 @app.route('/.well-known/jwks.json', methods=['GET'])
 def jwks():
@@ -34,7 +37,7 @@ def jwks():
         })
     return jsonify({'keys': jwks_keys})
 
-
+#endpoint defining and returning JWKS json the active private keys in keys including a token with the time and expiry date and the key id in the header and returns a json of the token
 @app.route('/auth', methods=['POST'])
 def auth():
     expired = request.args.get('expired',default=False,type=bool)
@@ -64,6 +67,7 @@ def auth():
 
     return jsonify({'token': token})
 
+#starts the webserver and calls for one expired key and one valid key
 if __name__ =='__main__':
     generate_rsa_pair(expired=True)
     generate_rsa_pair(expired=False)
