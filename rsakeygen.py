@@ -7,14 +7,49 @@ from flask import Flask, request, jsonify
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+import sqlite3
 
 #define keys and expiry time 
 keys = []
 KEY_EXPIRY_SECONDS = 60 * 60
+DB_PATH = "C:/Users/rutol/OneDrive/Desktop/jwksserver/totally_not_my_privateKeys.db"
+
+"""function that conncects to the database allowing it to be manipulated"""
+def db_connect():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+"""fuction inserts a generated key into the database"""
+def save_keys(private_key_pem, expiry):
+    conn = db_connect()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO keys (key,exp) VALUES (?, ?)",(private_key_pem,expiry))
+    conn.commit()
+    conn.close()
 
 """encodes bytes to base64 url format """
 def base64url_encode(data):
     return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
+
+"""these two functions access the database and retrives either a active key or a expired key"""
+def get_active_keys():
+    conn = db_connect()
+    cursor = conn.cursor()
+    current_time = int(time.time())
+    cursor.execute("Select * FROM keys WHERE exp > ?", (current_time,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def get_expired_keys():
+    conn = db_connect()
+    cursor = conn.cursor()
+    current_time = int(time.time())
+    cursor.execute("SELECT * FROM keys WHERE exp <= ?", (current_time,))
+    row = cursor.fetchone()
+    conn.close()
+    return row
 
 """
 this function generates public and private keys 
@@ -43,6 +78,8 @@ def generate_rsa_pair(expired=False):
 
     key_id = os.urandom(16).hex()  # Generate a unique Key ID
     expiry = int(time.time()) + (KEY_EXPIRY_SECONDS if not expired else -1)
+
+    save_keys(private_pem,expiry)
 
     keys.append({
         'kid' : key_id,
