@@ -7,6 +7,8 @@ from flask import Flask, request, jsonify
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
 import sqlite3
 
 #define keys and expiry time 
@@ -19,12 +21,25 @@ def db_connect():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+"""function to encrypt and return the key after it has been encrypted using AES"""
+def encrypt_key(key,text):
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(key),modes.CBC(iv),backend=default_backend())
+    encryptor = cipher.encryptor()
+    padder = padding.PKCS7(128).padder()
+    paddedData = padder.update(text) + padder.finalize()
+    encrypted = encryptor.update(paddedData) + encryptor.finalize()
+    return iv + encrypted 
 
 """fuction inserts a generated key into the database"""
 def save_keys(private_key_pem, expiry):
+    key = os.getenv("NOT_MY_KEY","1234567890abcdef").encode()
+    if len(key) not in (16, 24, 32):
+        raise ValueError("AES key must be 16, 24, or 32 bytes.")
+    encryptedkey = encrypt_key(key,private_key_pem)
     conn = db_connect()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO keys (key,exp) VALUES (?, ?)",(private_key_pem,expiry))
+    cursor.execute("INSERT INTO keys (key,exp) VALUES (?, ?)",(encryptedkey,expiry))
     conn.commit()
     conn.close()
 
